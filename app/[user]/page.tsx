@@ -58,7 +58,7 @@ export default function UserChat({
   }
 
   return (
-    <div className="relative flex flex-col h-screen overflow-hidden bg-gray-900 p-8">
+    <div className="relative flex flex-col h-screen overflow-hidden bg-gray-900 p-4">
       <div className="flex flex-col flex-grow sm:flex-row sm:space-x-4 flex-grow h-full max-w-full">
         {/* Chat Component */}
         <div className="flex flex-col w-full sm:w-1/2 md:w-1/4 h-full">
@@ -73,10 +73,12 @@ export default function UserChat({
 
         {/* Analytics Component */}
         <div className="hidden sm:flex flex-col w-full sm:w-1/2 md:w-3/4 h-full">
-          <div className="flex-grow overflow-auto">
+          <div className="flex-grow mb-4">
             <EmotionAnalysis data={chartData} />
           </div>
-          <div className="flex-grow p-16 bg-black rounded-xl w-full">hi</div>
+          <div className="flex-grow h-full p-16 bg-black rounded-xl w-full">
+            hi
+          </div>
         </div>
       </div>
     </div>

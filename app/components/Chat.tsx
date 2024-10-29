@@ -169,7 +169,7 @@ export default function Chat({ user, setChartData, setMessages }: ChatProps) {
       // Animate the background dimming and blurring
       anime({
         targets: "#userModalBackdrop",
-        opacity: [0, 1],
+        opacity: [0, 0.9],
         backdropFilter: ["blur(0px)", "blur(10px)"],
         easing: "easeOutExpo",
         duration: 500,
@@ -192,16 +192,16 @@ export default function Chat({ user, setChartData, setMessages }: ChatProps) {
       targets: "#userModal",
       opacity: [1, 0],
       translateY: [0, 100],
-      easing: "easeInExpo",
-      duration: 100,
+      easing: "easeInQuad",
+      duration: 200,
     });
 
     anime({
       targets: "#userModalBackdrop",
-      opacity: [1, 0],
+      opacity: [0.9, 0],
       backdropFilter: ["blur(10px)", "blur(0px)"],
-      easing: "easeInExpo",
-      duration: 100,
+      easing: "easeInQuad",
+      duration: 200,
       complete: () => setSelectedUser(null), // Only close the modal after the animation completes
     });
   };

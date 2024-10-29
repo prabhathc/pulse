@@ -107,7 +107,7 @@ const EmotionAnalysis = ({ data }: EmotionAnalysisProps) => {
 
   return (
     <div
-      className="w-full h-64 bg-gray-800 rounded-lg p-4 flex flex-col flex-grow overflow-auto"
+      className="w-full bg-gray-800 rounded-lg p-4 flex flex-col flex-grow"
       style={{ maxHeight: "400px", overflow: "auto" }} // Allow scrolling if needed
     >
       <h2 className="text-white mb-4">Emotion Analysis Results</h2>

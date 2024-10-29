@@ -3,6 +3,7 @@
   "version": "0.1.0",
   "private": true,
   "scripts": {
+    "both": "concurrently \"npm run dev\" \"cd backend && python3 -m uvicorn app.main:app --reload\"",
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
@@ -33,6 +34,7 @@
     "@types/react": "^18",
     "@types/react-dom": "^18",
     "@types/tmi.js": "^1.8.6",
+    "concurrently": "^9.0.1",
     "eslint": "^8",
     "eslint-config-next": "15.0.0",
     "postcss": "^8",
