@@ -1,5 +1,5 @@
 "use client";
-import { useEffect, useState, Dispatch, SetStateAction } from "react";
+import { use, useEffect, useState } from "react";
 import Chat from "@/app/components/Chat";
 import EmotionAnalysis from "@/app/components/EmotionAnalysis";
 import { useRouter } from "next/navigation";
@@ -7,22 +7,18 @@ import KeywordTrendTracker from "../components/KeywordTrendTracker";
 import TwitchStreamEmbed from "../components/TwitchStreamEmbed"; // Handles video-only Twitch embed
 import ChannelInfo from "../components/ChannelInfo"; // Assuming this component displays channel data
 
-type Message = {
-  id: string;
-  text: string;
-  user: string;
-  timestamp: Date;
-};
-
-export default function UserChat() {
-  const [messages, setMessages] = useState<Message[]>([]);
-  const [isBanned] = useState<boolean>(false);
+export default function UserChat({
+  params,
+}: {
+  params: Promise<{ user: string }>;
+}) {
+  const [isBanned, setIsBanned] = useState<boolean>(false);
   const router = useRouter();
   const [chartData, setChartData] = useState<
     { category: string; value: number }[]
   >([]);
-  const searchParams = new URLSearchParams(window.location.search);
-  const user = searchParams.get("user") as string;
+  const [messages, setMessages] = useState([]);
+  const { user } = use(params);
 
   // Handle ban modal redirect
   const goHome = () => {
