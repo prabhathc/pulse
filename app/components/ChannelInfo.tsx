@@ -107,9 +107,10 @@ export default function ChannelInfo({ username }: ChannelInfoProps) {
   };
 
   const fetchGameCover = async (gameName: string) => {
-    const igdbAccessToken = accessToken;
+    const igdbAccessToken = accessToken; // Reuse the Twitch access token
     const igdbClientId = clientId;
 
+    // First, fetch game information to get the cover ID
     const response = await fetch("https://api.igdb.com/v4/games", {
       method: "POST",
       headers: {
@@ -123,6 +124,7 @@ export default function ChannelInfo({ username }: ChannelInfoProps) {
     const data = await response.json();
     const coverId = data[0]?.cover;
 
+    // If cover ID is available, fetch the cover image
     if (coverId) {
       const coverResponse = await fetch("https://api.igdb.com/v4/covers", {
         method: "POST",
@@ -150,10 +152,10 @@ export default function ChannelInfo({ username }: ChannelInfoProps) {
     return <div>Loading...</div>;
 
   return (
-    <div className="w-full bg-gray-900 rounded-lg p-4 flex flex-col space-y-4">
+    <div className="w-full bg-gray-900 rounded-lg p-3 flex flex-col space-y-2">
       <div className="flex items-center space-x-2">
         {streamData && (
-          <div className="flex items-center space-x-2">
+          <div className="flex items-center space-x-1">
             <span className="flex h-2 w-2 relative">
               <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-green-500 opacity-75"></span>
               <span className="relative inline-flex rounded-full h-2 w-2 bg-green-600"></span>
@@ -165,62 +167,46 @@ export default function ChannelInfo({ username }: ChannelInfoProps) {
           {channelData.broadcaster_name}
         </h2>
       </div>
-      {gameCoverUrl && (
-        <Image
-          src={gameCoverUrl}
-          alt="Game Cover"
-          width={160}
-          height={90}
-          className="w-full h-auto object-cover rounded-md"
-        />
-      )}
-      <div className="text-gray-300">
-        <div className="flex justify-between">
-          <span>Game:</span>
-          <span className="text-white font-semibold">
-            {channelData.game_name}
-          </span>
-        </div>
-        <div className="flex justify-between">
-          <span>Followers:</span>
-          <span className="text-white font-semibold">
-            {followerCount.toLocaleString()}
-          </span>
-        </div>
-        <div className="flex justify-between">
-          <span>Latest Follower:</span>
-          <span className="text-white font-semibold">{latestFollower}</span>
+      <div className="flex flex-col">
+        {gameCoverUrl && (
+          <Image
+            src={gameCoverUrl}
+            alt="Game Cover"
+            width={180}
+            height={100}
+            className="w-full h-auto object-cover rounded-md"
+          />
+        )}
+        <div className="text-gray-300">
+          <p className="flex justify-between">
+            <span className="text-white">{channelData.game_name}</span>
+          </p>
+          <p className="flex justify-between">
+            <span>Followers</span>
+            <span className="text-white">{followerCount.toLocaleString()}</span>
+          </p>
         </div>
       </div>
       {streamData && (
         <div className="text-gray-300">
-          <h3 className="text-md font-semibold text-green-400">
-            Stream Insights
-          </h3>
-          <div className="flex justify-between">
-            <span>Viewers:</span>
-            <span className="text-white font-semibold">
-              {streamData.viewer_count}
-            </span>
-          </div>
-          <div className="flex justify-between">
-            <span>Streaming for:</span>
-            <span className="text-white font-semibold">
-              {streamUptime || "N/A"}
-            </span>
-          </div>
-          <div className="flex justify-between">
-            <span>Language:</span>
-            <span className="text-white font-semibold">
-              {streamData.language || "N/A"}
-            </span>
-          </div>
-          <div className="flex justify-between">
-            <span>Category:</span>
-            <span className="text-white font-semibold">
+          <p className="flex justify-between">
+            <span>Viewers</span>
+            <span className="text-white">{streamData.viewer_count}</span>
+          </p>
+          <p className="flex justify-between">
+            <span>Streaming for</span>
+            <span className="text-white">{streamUptime || "N/A"}</span>
+          </p>
+          <p className="flex justify-between">
+            <span>Language</span>
+            <span className="text-white">{streamData.language}</span>
+          </p>
+          <p className="flex justify-between">
+            <span>Category</span>
+            <span className="text-white">
               {channelData.broadcaster_type || "N/A"}
             </span>
-          </div>
+          </p>
         </div>
       )}
     </div>

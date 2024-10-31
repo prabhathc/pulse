@@ -1,22 +1,28 @@
 "use client";
-import { useEffect, useState } from "react";
+import { useEffect, useState, Dispatch, SetStateAction } from "react";
 import Chat from "@/app/components/Chat";
 import EmotionAnalysis from "@/app/components/EmotionAnalysis";
 import { useRouter } from "next/navigation";
-import { use } from "react";
+import KeywordTrendTracker from "../components/KeywordTrendTracker";
+import TwitchStreamEmbed from "../components/TwitchStreamEmbed"; // Handles video-only Twitch embed
+import ChannelInfo from "../components/ChannelInfo"; // Assuming this component displays channel data
 
-export default function UserChat({
-  params,
-}: {
-  params: Promise<{ user: string }>;
-}) {
-  const [isBanned, setIsBanned] = useState<boolean>(false);
+type Message = {
+  id: string;
+  text: string;
+  user: string;
+  timestamp: Date;
+};
+
+export default function UserChat() {
+  const [messages, setMessages] = useState<Message[]>([]);
+  const [isBanned] = useState<boolean>(false);
   const router = useRouter();
   const [chartData, setChartData] = useState<
     { category: string; value: number }[]
-  >([]); // State for chart data
-  const [messages, setMessages] = useState([]); // State for messages
-  const { user } = use(params);
+  >([]);
+  const searchParams = new URLSearchParams(window.location.search);
+  const user = searchParams.get("user") as string;
 
   // Handle ban modal redirect
   const goHome = () => {
@@ -33,11 +39,10 @@ export default function UserChat({
 
     window.addEventListener("keydown", handleEsc);
 
-    // Cleanup the event listener when the component unmounts
     return () => {
       window.removeEventListener("keydown", handleEsc);
     };
-  }, []); // Empty dependency array means this effect runs once on mount
+  }, []);
 
   // Display ban message if user is banned
   if (isBanned) {
@@ -58,27 +63,39 @@ export default function UserChat({
   }
 
   return (
-    <div className="relative flex flex-col h-screen overflow-hidden bg-gray-900 p-4">
-      <div className="flex flex-col flex-grow sm:flex-row sm:space-x-4 flex-grow h-full max-w-full">
-        {/* Chat Component */}
-        <div className="flex flex-col w-full sm:w-1/2 md:w-1/4 h-full">
-          <div className="flex-grow overflow-auto">
-            <Chat
-              user={user}
-              setChartData={setChartData}
-              setMessages={setMessages}
-            />
+    <div className="relative flex h-screen w-screen bg-gray-900 overflow-hidden">
+      {/* Left section for Channel Info */}
+      <div className="w-1/6 p-4 hidden lg:flex flex-col">
+        <div className="bg-gray-800 p-3 rounded-lg overflow-auto">
+          <div className="pb-2">
+            <ChannelInfo username={user} />
           </div>
+          <KeywordTrendTracker messages={messages} />
         </div>
+      </div>
 
-        {/* Analytics Component */}
-        <div className="hidden sm:flex flex-col w-full sm:w-1/2 md:w-3/4 h-full">
-          <div className="flex-grow mb-4">
-            <EmotionAnalysis data={chartData} />
-          </div>
-          <div className="flex-grow h-full p-16 bg-black rounded-xl w-full">
-            hi
-          </div>
+      {/* Middle section for Video */}
+      <div className="flex-1 flex flex-col items-center pt-4">
+        <div className="w-full aspect-w-16 aspect-h-9 bg-black rounded-lg overflow-hidden shadow-lg">
+          <TwitchStreamEmbed channelName={user} />
+        </div>
+      </div>
+
+      {/* Right section for Chat */}
+      <div className="w-1/6 h-full p-4 hidden lg:flex flex-col">
+        <div className="bg-gray-800 rounded-lg shadow-lg h-full overflow-auto">
+          <Chat
+            user={user}
+            setChartData={setChartData}
+            setMessages={setMessages}
+          />
+        </div>
+      </div>
+
+      {/* Bottom section for Analytics Components */}
+      <div className="w-full lg:w-4/5 p-4 absolute bottom-0 left-1/5 right-1/5 flex flex-col sm:flex-row justify-between space-y-4 sm:space-y-0 sm:space-x-4">
+        <div className="w-full sm:w-1/3 bg-gray-800 p-4 rounded-lg shadow-lg h-32 overflow-auto">
+          <EmotionAnalysis chartData={chartData} />
         </div>
       </div>
     </div>

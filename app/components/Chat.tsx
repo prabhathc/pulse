@@ -1,5 +1,6 @@
 "use client";
 import { useEffect, useState, useRef, useCallback } from "react";
+import Image from "next/image";
 import randomColor from "randomcolor";
 import anime from "animejs";
 
@@ -21,11 +22,16 @@ type ChatProps = {
   setMessages: (messages: Message[]) => void;
 };
 
-export default function Chat({ user, setChartData, setMessages }: ChatProps) {
+export default function Chat({ user, setMessages }: ChatProps) {
+  const [hoveredEmote, setHoveredEmote] = useState<{
+    src: string;
+    alt: string;
+  } | null>(null);
   const [messages, setLocalMessages] = useState<Message[]>([]);
   const [userMessages, setUserMessages] = useState<{
     [key: string]: Message[];
   }>({});
+  const [emotes, setEmotes] = useState<{ [emoteCode: string]: string }>({});
   const [selectedUser, setSelectedUser] = useState<string | null>(null);
   const socketRef = useRef<WebSocket | null>(null);
   const userColorsRef = useRef<{ [key: string]: string }>({});
@@ -42,35 +48,15 @@ export default function Chat({ user, setChartData, setMessages }: ChatProps) {
     return userColorsRef.current[username];
   }, []);
 
-  // Analyzes message emotions via an API call
-  const analyzeMessage = async (message: Message) => {
-    try {
-      const response = await fetch(
-        `${process.env.NEXT_PUBLIC_API_URL}/api/analyze`,
-        {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ content: message.content }),
-        }
-      );
-
-      const data = await response.json();
-      return data;
-    } catch (error) {
-      console.error("Failed to analyze message:", error);
-      return null;
-    }
-  };
-
   // Initializes the WebSocket connection
   useEffect(() => {
     if (!user) return;
-
+    const accessToken = sessionStorage.getItem("accessToken");
     const socket = new WebSocket("wss://irc-ws.chat.twitch.tv:443");
     socketRef.current = socket;
 
     socket.onopen = () => {
-      socket.send(`PASS oauth:${process.env.NEXT_PUBLIC_ACCESS_TOKEN}`);
+      socket.send(`PASS oauth:${accessToken}`);
       socket.send(`NICK ${process.env.NEXT_PUBLIC_TWITCH_USER}`);
       socket.send(`JOIN #${user}`);
     };
@@ -90,28 +76,21 @@ export default function Chat({ user, setChartData, setMessages }: ChatProps) {
           timestamp: Date.now(),
         };
 
-        const analysisResult = await analyzeMessage(newMessage);
-        if (analysisResult) {
-          newMessage.emotions = analysisResult.sentiment.emotions;
-        }
-
         setLocalMessages((prevMessages) => {
-          const updatedMessages = [...prevMessages, newMessage].slice(-50); // Keep last 50 messages
+          const updatedMessages = [...prevMessages, newMessage].slice(-100); // Keep last 50 messages
           setMessages(updatedMessages); // Update parent component
-          updateChartData(updatedMessages);
-
-          // Avoid pushing the same message twice into userMessages
-          setUserMessages((prev) => ({
-            ...prev,
-            [username]: prev[username]?.some(
-              (msg) => msg.timestamp === newMessage.timestamp
-            )
-              ? prev[username]
-              : [...(prev[username] || []), newMessage], // Store only new messages
-          }));
-
           return updatedMessages;
         });
+
+        // Avoid pushing the same message twice into userMessages
+        setUserMessages((prev) => ({
+          ...prev,
+          [username]: prev[username]?.some(
+            (msg) => msg.timestamp === newMessage.timestamp
+          )
+            ? prev[username]
+            : [...(prev[username] || []), newMessage], // Store only new messages
+        }));
       }
     };
 
@@ -125,30 +104,6 @@ export default function Chat({ user, setChartData, setMessages }: ChatProps) {
       }
     };
   }, [user, getUserColor]);
-
-  // Updates the chart data based on the last 10 seconds of messages
-  const updateChartData = (currentMessages: Message[]) => {
-    const now = Date.now();
-    const emotionCounts: { [key: string]: number } = {};
-
-    currentMessages.forEach((msg) => {
-      if (now - msg.timestamp <= 10000) {
-        const msgEmotions = msg.emotions;
-        if (msgEmotions) {
-          Object.entries(msgEmotions).forEach(([emotion, score]) => {
-            emotionCounts[emotion] = (emotionCounts[emotion] || 0) + score;
-          });
-        }
-      }
-    });
-
-    setChartData(
-      Object.entries(emotionCounts).map(([category, value]) => ({
-        category,
-        value,
-      }))
-    );
-  };
 
   // Scroll to the bottom whenever new messages are added
   useEffect(() => {
@@ -206,19 +161,181 @@ export default function Chat({ user, setChartData, setMessages }: ChatProps) {
     });
   };
 
+  const fetchUserId = async (username) => {
+    const accessToken = await sessionStorage.getItem("accessToken");
+    const response = await fetch(
+      `https://api.twitch.tv/helix/users?login=${username}`,
+      {
+        headers: {
+          Authorization: `Bearer ${accessToken}`,
+          "Client-Id": process.env.NEXT_PUBLIC_TWITCH_CLIENT_ID!,
+        },
+      }
+    );
+    const data = await response.json();
+    return data.data[0]?.id; // This is the user_id
+  };
+
+  // Function to fetch Twitch emotes
+  const fetchTwitchEmotes = async (userId: string, accessToken: string) => {
+    try {
+      const globalEmotesResponse = await fetch(
+        "https://api.twitch.tv/helix/chat/emotes/global",
+        {
+          headers: {
+            Authorization: `Bearer ${accessToken}`,
+            "Client-Id": process.env.NEXT_PUBLIC_TWITCH_CLIENT_ID!,
+          },
+        }
+      );
+      const globalEmotesData = await globalEmotesResponse.json();
+
+      const channelEmotesResponse = await fetch(
+        `https://api.twitch.tv/helix/chat/emotes?broadcaster_id=${userId}`,
+        {
+          headers: {
+            Authorization: `Bearer ${accessToken}`,
+            "Client-Id": process.env.NEXT_PUBLIC_TWITCH_CLIENT_ID!,
+          },
+        }
+      );
+      const channelEmotesData = await channelEmotesResponse.json();
+
+      const twitchEmoteMap: { [emoteCode: string]: string } = {};
+
+      [...globalEmotesData.data, ...channelEmotesData.data].forEach((emote) => {
+        twitchEmoteMap[emote.name] = emote.images.url_1x;
+      });
+
+      return twitchEmoteMap;
+    } catch (error) {
+      console.error("Error fetching Twitch emotes:", error);
+      return {};
+    }
+  };
+
+  // Function to fetch 7TV emotes
+  const fetch7TVEmotes = async (userId: string) => {
+    try {
+      const response = await fetch(
+        `https://api.7tv.app/v2/users/${userId}/emotes`
+      );
+      const emotesData = await response.json();
+      const emoteMap: { [key: string]: string } = {};
+
+      emotesData.forEach((emote) => {
+        emoteMap[emote.name] = `https://cdn.7tv.app/emote/${emote.id}/1x`;
+      });
+
+      return emoteMap;
+    } catch (error) {
+      console.error("Error fetching 7TV emotes:", error);
+      return {};
+    }
+  };
+
+  // Function to fetch BTTV emotes
+  const fetchBTTVEmotes = async (userId: string) => {
+    try {
+      const channelResponse = await fetch(
+        `https://api.betterttv.net/3/cached/users/twitch/${userId}`
+      );
+      const channelData = await channelResponse.json();
+
+      const bttvEmoteMap: { [emoteCode: string]: string } = {};
+
+      (channelData.channelEmotes as any[])
+        .concat(channelData.sharedEmotes as any[])
+        .forEach((emote) => {
+          bttvEmoteMap[
+            emote.code
+          ] = `https://cdn.betterttv.net/emote/${emote.id}/1x`;
+        });
+
+      return bttvEmoteMap;
+    } catch (error) {
+      console.error("Error fetching BTTV emotes:", error);
+      return {};
+    }
+  };
+
+  // Main function to fetch all emotes
+  const fetchAllEmotes = async (userId: string) => {
+    const accessToken = sessionStorage.getItem("accessToken") || "";
+    try {
+      const [twitchEmotes, bttvEmotes, sevenTVEmotes] = await Promise.all([
+        fetchTwitchEmotes(userId, accessToken),
+        fetchBTTVEmotes(userId),
+        fetch7TVEmotes(userId),
+      ]);
+      const combinedEmotes = {
+        ...twitchEmotes,
+        ...bttvEmotes,
+        ...sevenTVEmotes,
+      };
+      setEmotes(combinedEmotes); // Set emotes state
+      sessionStorage.setItem("emoteMap", JSON.stringify(combinedEmotes));
+      console.log("Emotes loaded: ", combinedEmotes); // Log loaded emotes for debugging
+    } catch (error) {
+      console.error("Error fetching emotes:", error);
+    }
+  };
+
+  useEffect(() => {
+    if (user) {
+      fetchUserId(user).then((userId) => {
+        if (userId) {
+          fetchAllEmotes(userId);
+        }
+      });
+    }
+  }, [user]);
+
+  const parseEmotes = (content: string) => {
+    return content
+      .split(/\s+/) // Split by whitespace to handle punctuation better
+      .map((word, index) => {
+        const sanitizedWord = word.replace(/[^a-zA-Z0-9]/g, ""); // Remove any punctuation from the word
+        if (emotes[sanitizedWord]) {
+          return (
+            <Image
+              key={index}
+              src={emotes[sanitizedWord]}
+              alt={sanitizedWord}
+              width={24}
+              height={24}
+              className="inline h-6 w-6"
+              onMouseEnter={() =>
+                setHoveredEmote({
+                  src: emotes[sanitizedWord],
+                  alt: sanitizedWord,
+                })
+              }
+              onMouseLeave={() => setHoveredEmote(null)}
+            />
+          );
+        } else {
+          return <span key={index}>{word} </span>;
+        }
+      });
+  };
+
   return (
-    <div className="relative h-full bg-gray-800 rounded-xl p-4 flex flex-col justify-end overflow-y-auto">
-      <ul className="space-y-2" ref={chatContainerRef}>
+    <div
+      className="relative h-full bg-gray-800 rounded-r-lg p-4 flex flex-col justify-end overflow-y-auto"
+      ref={chatContainerRef}
+    >
+      <ul>
         {messages.map((msg, index) => (
           <li
-            key={index}
+            key={`${msg.username}-${msg.timestamp}`}
             className="text-white text-sm p-2 rounded-lg hover:bg-gray-700 cursor-pointer"
             onClick={() => showUserMessages(msg.username)}
           >
             <span className="font-bold" style={{ color: msg.color }}>
               {msg.username}:
             </span>{" "}
-            {msg.content}
+            {parseEmotes(msg.content)}
           </li>
         ))}
       </ul>
@@ -250,7 +367,7 @@ export default function Chat({ user, setChartData, setMessages }: ChatProps) {
               <ul className="space-y-2">
                 {userMessages[selectedUser]?.map((msg, index) => (
                   <li
-                    key={index}
+                    key={`${msg.username}-${msg.timestamp}-${index}`}
                     className="text-white text-sm p-2 rounded-lg bg-gray-700"
                   >
                     <span className="font-bold" style={{ color: msg.color }}>
@@ -263,6 +380,18 @@ export default function Chat({ user, setChartData, setMessages }: ChatProps) {
             </div>
           </div>
         </>
+      )}
+
+      {hoveredEmote && (
+        <div className="fixed bottom-20 left-1/2 transform -translate-x-1/2 p-2 bg-black bg-opacity-80 rounded-lg shadow-lg">
+          <Image
+            src={hoveredEmote.src}
+            alt={hoveredEmote.alt}
+            width={64} // Larger size for the hover effect
+            height={64}
+            className="h-16 w-16"
+          />
+        </div>
       )}
     </div>
   );
